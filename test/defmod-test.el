@@ -104,5 +104,24 @@ Loading rides on Triggers installed in :init."
     (should (string-match-p "defmod foo: duplicate keyword :config"
                             (cadr err)))))
 
+(ert-deftest defmod-test-error-stageless-form ()
+  "A form outside any Stage is an expansion-time error.
+This covers both forms before the first keyword and forms after
+non-Stage keywords like :defer."
+  (let ((err (should-error (macroexpand-1 '(defmod foo (setq x 1))))))
+    (should (string-match-p "defmod foo: form belongs to no stage"
+                            (cadr err))))
+  (should-error (macroexpand-1 '(defmod foo :defer (setq x 1)))))
+
+(ert-deftest defmod-test-error-defer-after-conflict ()
+  "The Load Modes :defer and :after are mutually exclusive."
+  (let ((err (should-error (macroexpand-1 '(defmod foo
+                                             :defer
+                                             :after (bar)
+                                             :config (a))))))
+    (should (string-match-p "defmod foo: :after conflicts with :defer"
+                            (cadr err))))
+  (should-error (macroexpand-1 '(defmod foo :after (bar) :defer :config (a)))))
+
 (provide 'defmod-test)
 ;;; defmod-test.el ends here
