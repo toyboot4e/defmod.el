@@ -19,6 +19,22 @@
 
 ;;;; Golden expansion tests
 
+(ert-deftest defmod-test-defer-expansion ()
+  "A :defer Block never requires; :config waits in eval-after-load.
+Loading rides on Triggers installed in :init."
+  (should (equal (macroexpand-1 '(defmod foo
+                                   :defer
+                                   :init (keymap-global-set "C-c f" #'foo-cmd)
+                                   :config (foo-setup)))
+                 '(progn
+                    (unless (package-installed-p 'foo)
+                      (unless (assq 'foo package-archive-contents)
+                        (package-refresh-contents))
+                      (package-install 'foo))
+                    (keymap-global-set "C-c f" #'foo-cmd)
+                    (with-eval-after-load 'foo
+                      (foo-setup))))))
+
 (ert-deftest defmod-test-init-runs-before-require ()
   "The :init Stage runs at startup, before the package loads."
   (should (equal (macroexpand-1 '(defmod foo

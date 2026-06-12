@@ -22,17 +22,18 @@
 
 (defun defmod--parse (name body)
   "Parse BODY of the Block NAME with one forward pass.
-Return a plist with the Slots :init and :config."
-  (let ((init nil) (config nil) (stage nil))
+Return a plist with the Slots :mode, :init and :config."
+  (let ((mode 'instant) (init nil) (config nil) (stage nil))
     (while body
       (let ((head (pop body)))
         (cond
          ((eq head :init) (setq stage 'init))
          ((eq head :config) (setq stage 'config))
+         ((eq head :defer) (setq mode 'defer stage nil))
          ((eq stage 'init) (push head init))
          ((eq stage 'config) (push head config))
          (t (error "defmod %s: form belongs to no stage: %S" name head)))))
-    (list :init (nreverse init) :config (nreverse config))))
+    (list :mode mode :init (nreverse init) :config (nreverse config))))
 
 (defun defmod--ensure-form (name)
   "Return the Ensure form installing NAME from the package archives."
@@ -52,8 +53,11 @@ startup with the :config Stage run immediately after."
     `(progn
        ,(defmod--ensure-form name)
        ,@(plist-get slots :init)
-       (require ',name)
-       ,@(plist-get slots :config))))
+       ,@(let ((config (plist-get slots :config)))
+           (cond
+            ((eq (plist-get slots :mode) 'defer)
+             `((with-eval-after-load ',name ,@config)))
+            (t `((require ',name) ,@config)))))))
 
 (provide 'defmod)
 ;;; defmod.el ends here
