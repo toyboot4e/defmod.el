@@ -19,6 +19,21 @@
 
 ;;;; Golden expansion tests
 
+(ert-deftest defmod-test-init-runs-before-require ()
+  "The :init Stage runs at startup, before the package loads."
+  (should (equal (macroexpand-1 '(defmod foo
+                                   :init (setopt foo-flag t) (other)
+                                   :config (foo-setup)))
+                 '(progn
+                    (unless (package-installed-p 'foo)
+                      (unless (assq 'foo package-archive-contents)
+                        (package-refresh-contents))
+                      (package-install 'foo))
+                    (setopt foo-flag t)
+                    (other)
+                    (require 'foo)
+                    (foo-setup)))))
+
 (ert-deftest defmod-test-instant-expansion ()
   "An undecorated Block ensures, requires at startup, then runs :config."
   (should (equal (macroexpand-1 '(defmod foo :config (foo-setup)))

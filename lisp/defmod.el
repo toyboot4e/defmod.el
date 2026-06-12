@@ -27,7 +27,9 @@ Return a plist with the Slots :init and :config."
     (while body
       (let ((head (pop body)))
         (cond
+         ((eq head :init) (setq stage 'init))
          ((eq head :config) (setq stage 'config))
+         ((eq stage 'init) (push head init))
          ((eq stage 'config) (push head config))
          (t (error "defmod %s: form belongs to no stage: %S" name head)))))
     (list :init (nreverse init) :config (nreverse config))))
@@ -49,6 +51,7 @@ startup with the :config Stage run immediately after."
   (let ((slots (defmod--parse name body)))
     `(progn
        ,(defmod--ensure-form name)
+       ,@(plist-get slots :init)
        (require ',name)
        ,@(plist-get slots :config))))
 
