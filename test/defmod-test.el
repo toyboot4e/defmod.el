@@ -88,5 +88,13 @@ Loading rides on Triggers installed in :init."
                     (require 'foo)
                     (foo-setup)))))
 
+;;;; Strict-grammar error tests
+
+(ert-deftest defmod-test-error-unknown-keyword ()
+  "An unknown keyword is an expansion-time error naming the Block."
+  (let ((err (should-error (macroexpand-1 '(defmod foo :bind ("a" . b))))))
+    (should (string-match-p "defmod foo: unknown keyword :bind"
+                            (cadr err)))))
+
 (provide 'defmod-test)
 ;;; defmod-test.el ends here

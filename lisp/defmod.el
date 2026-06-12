@@ -35,6 +35,8 @@ Return a plist with the Slots :mode, :init and :config."
           (setq features (pop body) mode 'after stage nil))
          ((eq head :vc)
           (setq vc (pop body) stage nil))
+         ((keywordp head)
+          (error "defmod %s: unknown keyword %s" name head))
          ((eq stage 'init) (push head init))
          ((eq stage 'config) (push head config))
          (t (error "defmod %s: form belongs to no stage: %S" name head)))))
