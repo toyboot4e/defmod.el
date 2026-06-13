@@ -20,10 +20,27 @@
 
 ;;; Code:
 
+(defun defmod--check-mode (name current new)
+  "Return NEW, the Load Mode that Block NAME is entering.
+Signal an error if CURRENT already names a Load Mode: `defer',
+`autoload' and `after' are mutually exclusive."
+  (unless (eq current 'instant)
+    (error "defmod %s: :%s conflicts with :%s" name new current))
+  new)
+
+(defun defmod--symbol-list (name keyword noun value)
+  "Return VALUE, requiring a non-empty list of plain (non-keyword) symbols.
+NAME, KEYWORD and NOUN compose the error for Block NAME's KEYWORD."
+  (unless (and (proper-list-p value) value
+               (seq-every-p #'symbolp value)
+               (not (seq-some #'keywordp value)))
+    (error "defmod %s: %s needs a list of %s, got %S" name keyword noun value))
+  value)
+
 (defun defmod--parse (name body)
   "Parse BODY of the Block NAME with one forward pass.
-Return a plist with the Slots :mode, :features, :vc, :init and
-:config.  Signal an error on any strict-grammar violation."
+Return a plist with the Slots :mode, :features, :autoloads, :vc,
+:init and :config.  Signal an error on any strict-grammar violation."
   (let ((mode 'instant) (features nil) (autoloads nil) (vc nil)
         (init nil) (config nil) (stage nil) (seen nil))
     (while body
@@ -39,34 +56,17 @@ Return a plist with the Slots :mode, :features, :vc, :init and
            ((eq head :init) (setq stage 'init))
            ((eq head :config) (setq stage 'config))
            ((eq head :defer)
-            (unless (eq mode 'instant)
-              (error "defmod %s: :defer conflicts with :%s" name mode))
-            (setq mode 'defer stage nil))
+            (setq mode (defmod--check-mode name mode 'defer) stage nil))
            ((eq head :autoload)
-            (unless (eq mode 'instant)
-              (error "defmod %s: :autoload conflicts with :%s" name mode))
-            (let ((value (car body)))
-              (unless (and (proper-list-p value) value
-                           (seq-every-p #'symbolp value)
-                           (not (seq-some #'keywordp value)))
-                (error "defmod %s: :autoload needs a list of commands, got %S"
-                       name value)))
-            (setq autoloads (pop body) mode 'autoload stage nil))
+            (setq mode (defmod--check-mode name mode 'autoload) stage nil)
+            (setq autoloads (defmod--symbol-list name head "commands" (pop body))))
            ((eq head :after)
-            (unless (eq mode 'instant)
-              (error "defmod %s: :after conflicts with :%s" name mode))
-            (let ((value (car body)))
-              (unless (and (proper-list-p value) value
-                           (seq-every-p #'symbolp value)
-                           (not (seq-some #'keywordp value)))
-                (error "defmod %s: :after needs a list of features, got %S"
-                       name value)))
-            (setq features (pop body) mode 'after stage nil))
+            (setq mode (defmod--check-mode name mode 'after) stage nil)
+            (setq features (defmod--symbol-list name head "features" (pop body))))
            ((eq head :vc)
             (let ((value (car body)))
               (unless (and (proper-list-p value) value)
-                (error "defmod %s: :vc needs a spec list, got %S"
-                       name value)))
+                (error "defmod %s: :vc needs a spec list, got %S" name value)))
             (setq vc (pop body) stage nil))))
          ((eq stage 'init) (push head init))
          ((eq stage 'config) (push head config))
