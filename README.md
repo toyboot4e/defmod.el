@@ -49,6 +49,103 @@ There are no operation keywords (`:bind`, `:hook`, `:custom`, ...) and no
 conditions (`:when`) — that is plain Elisp, written in a stage or around the
 Block. See `CONTEXT.md` for the project glossary and `docs/adr/` for why.
 
+## Expansion
+
+`defmod` only schedules, so the expansion is exactly the code you would write
+by hand — no runtime, no hidden state. Each Load Mode below shows a Block and
+the form it expands to (these match the golden tests in
+`test/defmod-test.el`).
+
+**Instant (default)** — install if missing, `require` at startup, then `:config`:
+
+```elisp
+(defmod foo
+  :config (foo-setup))
+;; ⇒
+(progn
+  (unless (package-installed-p 'foo)
+    (unless (assq 'foo package-archive-contents)
+      (package-refresh-contents))
+    (package-install 'foo))
+  (require 'foo)
+  (foo-setup))
+```
+
+**`:defer`** — `:init` runs at startup to register triggers; `:config` waits
+in `with-eval-after-load`, and nothing `require`s `foo` directly:
+
+```elisp
+(defmod foo
+  :defer
+  :init (keymap-global-set "C-c f" #'foo-cmd)
+  :config (foo-setup))
+;; ⇒
+(progn
+  (unless (package-installed-p 'foo)
+    (unless (assq 'foo package-archive-contents)
+      (package-refresh-contents))
+    (package-install 'foo))
+  (keymap-global-set "C-c f" #'foo-cmd)
+  (with-eval-after-load 'foo
+    (foo-setup)))
+```
+
+**`:autoload (CMDS...)`** — like `:defer`, plus an `autoload` stub per command
+(the file is the package name) so a trigger can load the package:
+
+```elisp
+(defmod foo
+  :autoload (foo-cmd foo-other)
+  :init (keymap-global-set "C-c f" #'foo-cmd)
+  :config (foo-setup))
+;; ⇒
+(progn
+  (unless (package-installed-p 'foo)
+    (unless (assq 'foo package-archive-contents)
+      (package-refresh-contents))
+    (package-install 'foo))
+  (autoload 'foo-cmd "foo" nil t)
+  (autoload 'foo-other "foo" nil t)
+  (keymap-global-set "C-c f" #'foo-cmd)
+  (with-eval-after-load 'foo
+    (foo-setup)))
+```
+
+**`:after (FEATS...)`** — the `require` and `:config` nest inside one
+`with-eval-after-load` per feature, firing only when the last feature loads:
+
+```elisp
+(defmod foo
+  :after (bar baz)
+  :config (foo-glue))
+;; ⇒
+(progn
+  (unless (package-installed-p 'foo)
+    (unless (assq 'foo package-archive-contents)
+      (package-refresh-contents))
+    (package-install 'foo))
+  (with-eval-after-load 'bar
+    (with-eval-after-load 'baz
+      (require 'foo)
+      (foo-glue))))
+```
+
+**`:vc (SPEC...)`** — swaps only the install step for `package-vc-install`,
+passing the spec verbatim; the rest of the Load Mode is unchanged:
+
+```elisp
+(defmod foo
+  :vc (:url "https://example.com/foo")
+  :config (foo-setup))
+;; ⇒
+(progn
+  (unless (package-installed-p 'foo)
+    (package-vc-install
+     '(foo :url "https://example.com/foo")))
+  (require 'foo)
+  (foo-setup))
+```
+
 ## Bootstrapping
 
 `defmod` is not on ELPA, so it cannot install itself the way it installs the
