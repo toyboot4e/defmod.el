@@ -1,4 +1,4 @@
-# mod.el development tasks.  `just ci` runs everything.
+# defmod.el development tasks.  `just ci` runs everything.
 
 emacs := "emacs"
 stage := ".stage"

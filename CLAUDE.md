@@ -1,4 +1,4 @@
-# mod.el
+# defmod.el
 
 `defmod` — a package-configuration macro for Emacs that only schedules:
 keywords say *when*, never *what*. Fast uncompiled startup through explicit

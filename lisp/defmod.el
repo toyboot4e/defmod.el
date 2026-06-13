@@ -7,7 +7,7 @@
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "30.1"))
 ;; Keywords: lisp
-;; URL: https://github.com/toyboot4e/mod.el
+;; URL: https://github.com/toyboot4e/defmod.el
 ;; SPDX-License-Identifier: CC0-1.0
 
 ;;; Commentary:

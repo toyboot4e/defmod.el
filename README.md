@@ -1,4 +1,4 @@
-# mod.el
+# defmod.el
 
 `defmod` — an Emacs package-configuration macro that **only schedules**:
 keywords say *when*, never *what*. What happens is always plain Elisp you
@@ -48,6 +48,42 @@ write yourself; the expansion is exactly the code you would write by hand.
 There are no operation keywords (`:bind`, `:hook`, `:custom`, ...) and no
 conditions (`:when`) — that is plain Elisp, written in a stage or around the
 Block. See `CONTEXT.md` for the project glossary and `docs/adr/` for why.
+
+## Bootstrapping
+
+`defmod` is not on ELPA, so it cannot install itself the way it installs the
+packages you configure. Bootstrap it once from version control with the
+built-in `package-vc` (Emacs 30+), then `require` it before any Block:
+
+```elisp
+;; early in init.el, after (package-initialize)
+(unless (package-installed-p 'defmod)
+  (package-vc-install "https://github.com/toyboot4e/defmod.el"))
+(require 'defmod)
+
+;; from here on, Blocks work — and each one installs its own package
+(defmod vertico
+  :config (vertico-mode 1))
+```
+
+If you already use `use-package`, its `:vc` keyword does the same in one form
+(note `defmod` itself still needs the `require` before you write any Block):
+
+```elisp
+(use-package defmod
+  :vc (:url "https://github.com/toyboot4e/defmod.el")
+  :demand t)
+```
+
+Once `defmod` is loaded, packages you configure with a `:vc` Block are
+installed from version control too — no `use-package` needed for those:
+
+```elisp
+(defmod consult-projectile
+  :vc (:url "https://github.com/OlMon/consult-projectile")
+  :after (consult projectile)
+  :config (consult-projectile-mode 1))
+```
 
 ## Development
 

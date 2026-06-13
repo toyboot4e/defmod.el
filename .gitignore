@@ -2,3 +2,8 @@
 .stage/
 result
 result-*
+
+# local defmod playground (not committed)
+/tmp/
+/gen
+/run

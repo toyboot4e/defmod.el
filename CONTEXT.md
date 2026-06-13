@@ -1,4 +1,4 @@
-# mod.el
+# defmod.el
 
 A DSL for writing Emacs package configuration that keeps startup fast through deferral, with internals simple enough for one person to fully understand.
 
@@ -13,7 +13,7 @@ One `(defmod NAME ...)` form: the complete configuration of one package. Its bod
 _Avoid_: declaration, stanza
 
 **Keyword**:
-A label inside a Block. Keywords only ever name Stages (`:init`, `:config`), Load Modes (`:defer`, `:after`), or the install source (`:vc`). mod.el has no operation keywords — no `:bind`, no `:setq`, no `:hook`. What happens is always plain Elisp; Keywords only say *when* (and *from where*).
+A label inside a Block. Keywords only ever name Stages (`:init`, `:config`), Load Modes (`:defer`, `:after`), or the install source (`:vc`). defmod has no operation keywords — no `:bind`, no `:setq`, no `:hook`. What happens is always plain Elisp; Keywords only say *when* (and *from where*).
 
 **Stage**:
 A Keyword introducing a run of plain Elisp forms distinguished only by *when* they run. There are exactly two: `:init` (at startup, before the package can load) and `:config` (once the package has loaded). Users call `setopt`/`add-hook`/`define-key`/anything directly inside a Stage.

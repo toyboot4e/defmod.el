@@ -1,5 +1,5 @@
 {
-  description = "mod.el — defmod, a package-configuration macro that only schedules";
+  description = "defmod.el — a package-configuration macro that only schedules";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
