@@ -25,7 +25,7 @@ write yourself; the expansion is exactly the code you would write by hand.
 ```
 (defmod NAME
   [:vc (SPEC...)]            ; install from VC (package-vc spec) instead of archives
-  [:defer | :after (FEATS...)]
+  [:defer | :autoload (CMDS...) | :after (FEATS...)]
   [:init FORMS...]           ; run at startup
   [:config FORMS...])        ; run once NAME has loaded
 ```
@@ -35,6 +35,9 @@ write yourself; the expansion is exactly the code you would write by hand.
   autoloads, triggered by whatever you registered in `:init` (a keybinding,
   a hook, an `auto-mode-alist` entry). `:config` waits in
   `with-eval-after-load`.
+- **`:autoload (CMDS...)`:** like `:defer`, but for packages that *don't*
+  autoload their own entry commands — defmod emits `(autoload 'cmd "NAME" …)`
+  for each, so your `:init` triggers can load the package.
 - **`:after (FEATS...)`:** the package is `require`d the moment all FEATS
   have loaded.
 - Every Block installs its package first when missing (package.el, or
