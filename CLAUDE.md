@@ -78,3 +78,7 @@ deferral; internals small enough to read in one sitting.
 - `nix develop` provides the devShell (Emacs with package-lint, just).
   There is deliberately no `nix run` app — a macro has no playground.
 - CI is `nix develop --command just ci` on GitHub Actions.
+- Conventional-commit-style subject prefixes are preferred: `fix:`, `feat:`,
+  `docs:`, `test:`, `refactor:`, `build:`, `dev:` (repo chores/tooling), etc.
+  Keep the block-name-first error convention separate — this is about commit
+  subjects, not error strings.
