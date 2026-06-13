@@ -40,16 +40,16 @@ NAME, KEYWORD and NOUN compose the error for Block NAME's KEYWORD."
 (defun defmod--parse (name body)
   "Parse BODY of the Block NAME with one forward pass.
 Return a plist with the Slots :mode, :features, :autoloads, :vc,
-:init and :config, plus :if when an :if condition is present.
+:builtin, :init and :config, plus :if when an :if condition is present.
 Signal an error on any strict-grammar violation."
-  (let ((mode 'instant) (features nil) (autoloads nil) (vc nil)
+  (let ((mode 'instant) (features nil) (autoloads nil) (vc nil) (builtin nil)
         (init nil) (config nil) (stage nil) (seen nil)
         (condition nil) (if-p nil))
     (while body
       (let ((head (pop body)))
         (cond
          ((keywordp head)
-          (unless (memq head '(:init :config :defer :autoload :after :vc :if))
+          (unless (memq head '(:init :config :defer :autoload :after :vc :if :builtin))
             (error "defmod %s: unknown keyword %s" name head))
           (when (memq head seen)
             (error "defmod %s: duplicate keyword %s" name head))
@@ -71,13 +71,17 @@ Signal an error on any strict-grammar violation."
                 (error "defmod %s: :vc needs a spec list, got %S" name value)))
             (setq vc (pop body) stage nil))
            ((eq head :if)
-            (setq condition (pop body) if-p t stage nil))))
+            (setq condition (pop body) if-p t stage nil))
+           ((eq head :builtin)
+            (setq builtin t stage nil))))
          ((eq stage 'init) (push head init))
          ((eq stage 'config) (push head config))
          (t (error "defmod %s: form belongs to no stage: %S" name head)))))
+    (when (and builtin vc)
+      (error "defmod %s: :builtin conflicts with :vc" name))
     (append
      (list :mode mode :features features :autoloads autoloads :vc vc
-           :init (nreverse init) :config (nreverse config))
+           :builtin builtin :init (nreverse init) :config (nreverse config))
      (and if-p (list :if condition)))))
 
 (defun defmod--ensure-form (name vc)
@@ -105,11 +109,14 @@ plist holding plain Elisp; the keywords are:
   :autoload (CMDS)   like :defer, but autoload CMDS so they trigger it
   :after (FEATS...)  load as soon as all FEATS have loaded
   :vc (SPEC...)      install from version control (package-vc spec)
+  :builtin           skip Ensure: NAME is built in or installed elsewhere
   :if COND           gate the whole Block on COND; skip it when COND is nil
 
 \:defer, :autoload and :after are mutually exclusive Load Modes;
 with none, the package is `require'd at startup and :config runs
-immediately.  The package is installed first whenever it is missing.
+immediately.  The package is installed first whenever it is missing,
+unless :builtin says it is provided outside package.el (a built-in, or
+installed by other means); :builtin and :vc cannot be combined.
 With :if, the entire expansion -- Ensure included -- is wrapped so
 the Block does nothing unless COND evaluates non-nil."
   (declare (indent defun))
@@ -120,7 +127,8 @@ the Block does nothing unless COND evaluates non-nil."
          (config (plist-get slots :config))
          (form
           `(progn
-             ,(defmod--ensure-form name (plist-get slots :vc))
+             ,@(unless (plist-get slots :builtin)
+                 (list (defmod--ensure-form name (plist-get slots :vc))))
              ,@(mapcar (lambda (cmd) `(autoload ',cmd ,(symbol-name name) nil t))
                        (plist-get slots :autoloads))
              ,@(plist-get slots :init)

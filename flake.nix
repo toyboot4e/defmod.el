@@ -15,8 +15,19 @@
           packages = [
             (pkgs.emacs.pkgs.withPackages (epkgs: [ epkgs.package-lint ]))
             pkgs.just
+            pkgs.pinact
+            pkgs.zizmor
           ];
         };
+      });
+
+      checks = forAllSystems (pkgs: {
+        # Static security audit of the GitHub Actions workflows.  Offline so
+        # the build stays pure; pinning is verified by pinact in CI.
+        zizmor = pkgs.runCommand "zizmor-check" { nativeBuildInputs = [ pkgs.zizmor ]; } ''
+          cd ${self}
+          zizmor --offline . && touch $out
+        '';
       });
     };
 }

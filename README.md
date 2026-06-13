@@ -26,6 +26,7 @@ write yourself; the expansion is exactly the code you would write by hand.
 (defmod NAME
   [:if COND]                 ; skip the whole Block unless COND is non-nil
   [:vc (SPEC...)]            ; install from VC (package-vc spec) instead of archives
+  [:builtin]                 ; skip install: NAME is built in / managed elsewhere
   [:defer | :autoload (CMDS...) | :after (FEATS...)]
   [:init FORMS...]           ; run at startup
   [:config FORMS...])        ; run once NAME has loaded
@@ -45,9 +46,12 @@ write yourself; the expansion is exactly the code you would write by hand.
   when `COND` is nil the Block expands to a no-op, installing and loading
   nothing. Composes with any Load Mode.
 - Every Block installs its package first when missing (package.el, or
-  package-vc with `:vc`).
+  package-vc with `:vc`) — unless **`:builtin`** says NAME is provided outside
+  package.el (a built-in like `proced`, or installed by other means), in which
+  case Ensure is skipped. `:builtin` and `:vc` cannot be combined.
 - The grammar is strict: unknown keywords, duplicate keywords, forms outside
-  a stage, and `:defer` + `:after` together are expansion-time errors.
+  a stage, `:defer` + `:after`, and `:builtin` + `:vc` together are
+  expansion-time errors.
 
 There are no operation keywords (`:bind`, `:hook`, `:custom`, ...) — that is
 plain Elisp, written in a stage. Conditional loading is the one bit of control
@@ -149,6 +153,20 @@ passing the spec verbatim; the rest of the Load Mode is unchanged:
      '(foo :url "https://example.com/foo")))
   (require 'foo)
   (foo-setup))
+```
+
+**`:builtin`** — drops the Ensure step; everything else is unchanged, so a
+built-in or otherwise-provided package is loaded and configured without any
+install attempt:
+
+```elisp
+(defmod proced
+  :builtin
+  :config (setopt proced-auto-update-flag t))
+;; ⇒
+(progn
+  (require 'proced)
+  (setopt proced-auto-update-flag t))
 ```
 
 **`:if COND`** — wraps the entire expansion in `when`, so a nil `COND` skips

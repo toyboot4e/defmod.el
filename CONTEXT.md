@@ -31,7 +31,7 @@ The opt-in Load Modes (`:defer`, `:after`): the Block does not load the package 
 An eagerly-installed registration — a keybinding, hook, or `auto-mode-alist` entry — written as plain Lisp in `:init`, which causes a Deferred package to load on first use. The load fires through an autoload: usually one the package ships, or one defmod emits when the command is listed in `:autoload`.
 
 **Ensure**:
-Every Block installs its package at startup if it is missing. The default source is the package archives (package.el); `:vc` switches the source to a version-control checkout (package-vc).
+Every Block installs its package at startup if it is missing. The default source is the package archives (package.el); `:vc` switches the source to a version-control checkout (package-vc). `:builtin` opts out of Ensure entirely — for a package provided outside package.el (a built-in, or installed by other means); it cannot combine with `:vc` (see ADR-0006).
 
 **Skeleton**:
 The single fixed code shape every Block expands into. Slots in the Skeleton are filled by Handlers; no Handler ever wraps or sees another Handler's output.

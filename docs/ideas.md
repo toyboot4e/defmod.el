@@ -6,13 +6,9 @@ Loose design ideas not yet promoted to an ADR. Recording, not deciding.
 
 Implemented: `:if COND` gates the whole Block. See `docs/adr/0005`.
 
-## `:ensure nil` — configure without installing
+## ~~`:ensure nil` — configure without installing~~ — DONE (ADR-0006)
 
-defmod's Ensure is mandatory: every Block tries to `package-install` its name.
-leaf/use-package both ship `:ensure nil` so a Block can configure a **built-in**
-(`prolog-mode`, `proced`, `javascript-mode`) or a **sub-feature of an
-already-installed package** (`lsp-ui-imenu`) without installing anything. defmod
-has no such opt-out, so those packages currently can't be defmod Blocks at all —
-they fall back to plain Elisp. Worth deciding whether an install-source value
-like `:vc none` / `:builtin` belongs in the grammar, or whether plain Elisp is
-the intended answer for built-ins.
+Implemented as `:builtin`: skips Ensure for a package provided outside
+package.el (a built-in, or installed by other means). See `docs/adr/0006`.
+(A genuine sub-feature like `lsp-ui-imenu` is better folded into its parent
+Block's `:config` than given its own `:builtin` Block.)

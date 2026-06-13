@@ -150,6 +150,27 @@ The stubs come before :init; the file is the package name."
   ;; An omitted :if leaves the bare progn, no wrapper.
   (should (eq 'progn (car-safe (macroexpand-1 '(defmod foo :config (a)))))))
 
+(ert-deftest defmod-test-builtin-expansion ()
+  "`:builtin' skips Ensure entirely; the package is loaded and configured."
+  (should (equal (macroexpand-1 '(defmod foo
+                                   :builtin
+                                   :config (foo-setup)))
+                 '(progn
+                    (require 'foo)
+                    (foo-setup)))))
+
+(ert-deftest defmod-test-builtin-defer-expansion ()
+  "`:builtin' composes with a Load Mode: no Ensure, no require, deferred config."
+  (should (equal (macroexpand-1 '(defmod foo
+                                   :builtin
+                                   :defer
+                                   :init (setopt foo-flag t)
+                                   :config (foo-setup)))
+                 '(progn
+                    (setopt foo-flag t)
+                    (with-eval-after-load 'foo
+                      (foo-setup))))))
+
 ;;;; Strict-grammar error tests
 
 (ert-deftest defmod-test-error-unknown-keyword ()
@@ -220,6 +241,19 @@ non-Stage keywords like :defer."
   (let ((err (should-error (macroexpand-1 '(defmod foo :vc :config (a))))))
     (should (string-match-p "defmod foo: :vc needs a spec list" (cadr err))))
   (should-error (macroexpand-1 '(defmod foo :vc "https://example.com"))))
+
+(ert-deftest defmod-test-error-builtin-vc-conflict ()
+  "`:builtin' (no install) and :vc (install from VC) are contradictory."
+  (let ((err (should-error (macroexpand-1 '(defmod foo
+                                             :builtin
+                                             :vc (:url "https://example.com/foo")
+                                             :config (a))))))
+    (should (string-match-p "defmod foo: :builtin conflicts with :vc"
+                            (cadr err))))
+  (should-error (macroexpand-1 '(defmod foo
+                                  :vc (:url "https://example.com/foo")
+                                  :builtin
+                                  :config (a)))))
 
 (ert-deftest defmod-test-error-name-must-be-symbol ()
   "The Block NAME is a plain symbol: a feature/package name."
