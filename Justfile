@@ -54,17 +54,26 @@ lint:
                             (message "%s:%d:%d: %s: %s"
                                      file (nth 0 r) (nth 1 r) (nth 2 r) (nth 3 r))))))
                     (kill-emacs (if any 1 0))))'
-    # Load the package first: checkdoc accepts message text starting with
-    # a DEFINED symbol, which is how the "defmod NAME: ..." error format
-    # passes the capitalization check.
-    out=$("{{ emacs }}" -Q --batch -L lisp -l defmod \
-        --eval '(dolist (f (directory-files "lisp" t "\\.el$")) (checkdoc-file f))' 2>&1)
-    if [ -n "$out" ]; then
-        echo "$out"
-        echo "checkdoc: FAIL"
-        exit 1
-    fi
-    echo "checkdoc: clean"
+    # checkdoc via its diagnostic BUFFER, not the *warn* path `checkdoc-file'
+    # uses: that routes findings through `warn' to stderr, where emacs's own
+    # locale/autoload chatter would be scraped as false findings.  Collecting
+    # into a buffer and scanning for "file:line:" lines isolates checkdoc's
+    # real diagnostics; the elisp sets the exit code itself.  `-l defmod' so
+    # checkdoc accepts the "defmod NAME: ..." error format (message text
+    # starting with a defined symbol passes the capitalization check).
+    "{{ emacs }}" -Q --batch -L lisp -l defmod \
+        --eval '(require (quote checkdoc))' \
+        --eval '(let ((checkdoc-diagnostic-buffer "*checkdoc*"))
+                  (dolist (f (directory-files "lisp" t "\\.el$"))
+                    (with-current-buffer (find-file-noselect f)
+                      (checkdoc-current-buffer t)))
+                  (with-current-buffer (get-buffer-create "*checkdoc*")
+                    (goto-char (point-min))
+                    (let ((found nil))
+                      (while (re-search-forward "^.*\\.el:[0-9]+:.*$" nil t)
+                        (setq found t) (princ (match-string 0)) (princ "\n"))
+                      (kill-emacs (if found 1 0)))))'
+    echo "lint: clean"
 
 clean:
     rm -rf "{{ stage }}" lisp/*.elc test/*.elc
