@@ -34,9 +34,26 @@ alias l := lint
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
+    # package-lint, with ONE category false-positive suppressed: defmod
+    # EMITS user configuration, so `with-eval-after-load' in the generated
+    # code is that macro's sanctioned use, not a library misusing load
+    # order.  package-lint's check is a plain text regexp that cannot tell
+    # the difference.  Every other warning stays fatal.
     "{{ emacs }}" -Q --batch -l package-lint \
         --eval '(setq package-lint-main-file "lisp/defmod.el")' \
-        -f package-lint-batch-and-exit lisp/*.el
+        --eval '(progn
+                  (package-initialize)
+                  (let ((text-quoting-style (quote grave)) (any nil))
+                    (dolist (file (directory-files "lisp" t "\\.el$"))
+                      (with-temp-buffer
+                        (insert-file-contents file t)
+                        (emacs-lisp-mode)
+                        (dolist (r (package-lint-buffer))
+                          (unless (string-match-p "eval-after-load" (nth 3 r))
+                            (setq any t)
+                            (message "%s:%d:%d: %s: %s"
+                                     file (nth 0 r) (nth 1 r) (nth 2 r) (nth 3 r))))))
+                    (kill-emacs (if any 1 0))))'
     # Load the package first: checkdoc accepts message text starting with
     # a DEFINED symbol, which is how the "defmod NAME: ..." error format
     # passes the capitalization check.
