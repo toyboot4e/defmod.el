@@ -8,7 +8,7 @@ set script-interpreter := ['bash', '-euo', 'pipefail']
 default: ci
 
 # runs all the checks for CI
-ci: compile lint test
+ci: compile lint test readme-check
 
 [private]
 alias c := compile
@@ -78,6 +78,36 @@ lint:
                         (setq found t) (princ (match-string 0)) (princ "\n"))
                       (kill-emacs (if found 1 0)))))'
     echo "lint: clean"
+
+# regenerates the README.org expansion results from the live macro.
+[private]
+[script]
+_readme-gen file:
+    "{{ emacs }}" -Q --batch -L lisp -l defmod \
+        --eval '(progn
+                  (require (quote org))
+                  (setq org-confirm-babel-evaluate nil
+                        make-backup-files nil)
+                  (find-file "{{ file }}")
+                  (org-babel-execute-buffer)
+                  (save-buffer))'
+
+# regenerates README.org so the Expansion section matches the macro.
+readme: (_readme-gen "README.org")
+    @echo "readme: regenerated README.org"
+
+# fails if README.org expansions are stale (run `just readme` to fix).
+[script]
+readme-check:
+    tmp="$(mktemp -d)/README.org"
+    cp README.org "$tmp"
+    just _readme-gen "$tmp"
+    if diff -u README.org "$tmp"; then
+        echo "readme: in sync"
+    else
+        echo "README.org expansions are stale; run 'just readme'" >&2
+        exit 1
+    fi
 
 # cleans up `.elc` files
 clean:
