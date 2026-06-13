@@ -24,13 +24,13 @@
   "Parse BODY of the Block NAME with one forward pass.
 Return a plist with the Slots :mode, :features, :vc, :init and
 :config.  Signal an error on any strict-grammar violation."
-  (let ((mode 'instant) (features nil) (vc nil)
+  (let ((mode 'instant) (features nil) (autoloads nil) (vc nil)
         (init nil) (config nil) (stage nil) (seen nil))
     (while body
       (let ((head (pop body)))
         (cond
          ((keywordp head)
-          (unless (memq head '(:init :config :defer :after :vc))
+          (unless (memq head '(:init :config :defer :autoload :after :vc))
             (error "defmod %s: unknown keyword %s" name head))
           (when (memq head seen)
             (error "defmod %s: duplicate keyword %s" name head))
@@ -42,6 +42,16 @@ Return a plist with the Slots :mode, :features, :vc, :init and
             (unless (eq mode 'instant)
               (error "defmod %s: :defer conflicts with :%s" name mode))
             (setq mode 'defer stage nil))
+           ((eq head :autoload)
+            (unless (eq mode 'instant)
+              (error "defmod %s: :autoload conflicts with :%s" name mode))
+            (let ((value (car body)))
+              (unless (and (proper-list-p value) value
+                           (seq-every-p #'symbolp value)
+                           (not (seq-some #'keywordp value)))
+                (error "defmod %s: :autoload needs a list of commands, got %S"
+                       name value)))
+            (setq autoloads (pop body) mode 'autoload stage nil))
            ((eq head :after)
             (unless (eq mode 'instant)
               (error "defmod %s: :after conflicts with :%s" name mode))
@@ -61,7 +71,7 @@ Return a plist with the Slots :mode, :features, :vc, :init and
          ((eq stage 'init) (push head init))
          ((eq stage 'config) (push head config))
          (t (error "defmod %s: form belongs to no stage: %S" name head)))))
-    (list :mode mode :features features :vc vc
+    (list :mode mode :features features :autoloads autoloads :vc vc
           :init (nreverse init) :config (nreverse config))))
 
 (defun defmod--ensure-form (name vc)
@@ -86,12 +96,13 @@ plist holding plain Elisp; the keywords are:
   :init FORMS...     run at startup, before the package can load
   :config FORMS...   run once the package has loaded
   :defer             load only when something autoloads the package
+  :autoload (CMDS)   like :defer, but autoload CMDS so they trigger it
   :after (FEATS...)  load as soon as all FEATS have loaded
   :vc (SPEC...)      install from version control (package-vc spec)
 
-\:defer and :after are mutually exclusive; with neither, the
-package is `require'd at startup and :config runs immediately.
-The package is installed first whenever it is missing."
+\:defer, :autoload and :after are mutually exclusive Load Modes;
+with none, the package is `require'd at startup and :config runs
+immediately.  The package is installed first whenever it is missing."
   (declare (indent defun))
   (unless (and name (symbolp name) (not (keywordp name)))
     (error "defmod: NAME must be a symbol, got %S" name))
@@ -100,9 +111,11 @@ The package is installed first whenever it is missing."
          (config (plist-get slots :config)))
     `(progn
        ,(defmod--ensure-form name (plist-get slots :vc))
+       ,@(mapcar (lambda (cmd) `(autoload ',cmd ,(symbol-name name) nil t))
+                 (plist-get slots :autoloads))
        ,@(plist-get slots :init)
        ,@(cond
-          ((eq mode 'defer)
+          ((memq mode '(defer autoload))
            `((with-eval-after-load ',name ,@config)))
           ((eq mode 'after)
            (let ((forms `((require ',name) ,@config)))

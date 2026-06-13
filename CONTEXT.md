@@ -19,7 +19,7 @@ A label inside a Block. Keywords only ever name Stages (`:init`, `:config`), Loa
 A Keyword introducing a run of plain Elisp forms distinguished only by *when* they run. There are exactly two: `:init` (at startup, before the package can load) and `:config` (once the package has loaded). Users call `setopt`/`add-hook`/`define-key`/anything directly inside a Stage.
 
 **Load Mode**:
-When the package loads. Exactly one per Block: Instant (the default — `require` at startup), Deferred (`:defer` — loads only when a Trigger fires), or After (`:after FEATURES` — loads as soon as the named features have all loaded). `:defer` and `:after` are mutually exclusive.
+When the package loads. Exactly one per Block, or none: Instant (the default — `require` at startup), Deferred (`:defer` — loads only when a Trigger fires), Autoload (`:autoload (CMDS)` — Deferred, and defmod additionally emits autoload stubs so the named commands are themselves the Triggers), or After (`:after FEATURES` — loads once the named features have all loaded). The three non-Instant modes are mutually exclusive.
 
 **Instant Load**:
 The default Load Mode: the package is `require`d at startup and `:config` runs immediately after.
@@ -28,7 +28,7 @@ The default Load Mode: the package is `require`d at startup and `:config` runs i
 The opt-in Load Modes (`:defer`, `:after`): the Block does not load the package at startup; `:config` waits inside `eval-after-load`.
 
 **Trigger**:
-An eagerly-installed registration — a keybinding, hook, or `auto-mode-alist` entry — written as plain Lisp in `:init`, which causes a Deferred package to load on first use via the package's own autoloads.
+An eagerly-installed registration — a keybinding, hook, or `auto-mode-alist` entry — written as plain Lisp in `:init`, which causes a Deferred package to load on first use. The load fires through an autoload: usually one the package ships, or one defmod emits when the command is listed in `:autoload`.
 
 **Ensure**:
 Every Block installs its package at startup if it is missing. The default source is the package archives (package.el); `:vc` switches the source to a version-control checkout (package-vc).

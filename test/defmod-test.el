@@ -86,6 +86,24 @@ Loading rides on Triggers installed in :init."
                     (require 'foo)
                     (foo-setup)))))
 
+(ert-deftest defmod-test-autoload-expansion ()
+  "`:autoload' defers AND emits an autoload stub per command.
+The stubs come before :init; the file is the package name."
+  (should (equal (macroexpand-1 '(defmod foo
+                                   :autoload (foo-cmd foo-other)
+                                   :init (keymap-global-set "C-c f" #'foo-cmd)
+                                   :config (foo-setup)))
+                 '(progn
+                    (unless (package-installed-p 'foo)
+                      (unless (assq 'foo package-archive-contents)
+                        (package-refresh-contents))
+                      (package-install 'foo))
+                    (autoload 'foo-cmd "foo" nil t)
+                    (autoload 'foo-other "foo" nil t)
+                    (keymap-global-set "C-c f" #'foo-cmd)
+                    (with-eval-after-load 'foo
+                      (foo-setup))))))
+
 (ert-deftest defmod-test-init-runs-before-require ()
   "The :init Stage runs at startup, before the package loads."
   (should (equal (macroexpand-1 '(defmod foo
@@ -147,6 +165,27 @@ non-Stage keywords like :defer."
                             (cadr err))))
   (should-error (macroexpand-1 '(defmod foo :after (bar) :defer :config (a)))))
 
+(ert-deftest defmod-test-error-autoload-excludes-other-modes ()
+  "`:autoload' is a Load Mode, exclusive with :defer and :after."
+  (let ((err (should-error (macroexpand-1 '(defmod foo
+                                             :defer
+                                             :autoload (foo-cmd)
+                                             :config (a))))))
+    (should (string-match-p "defmod foo: :autoload conflicts with :defer"
+                            (cadr err))))
+  (should-error (macroexpand-1 '(defmod foo :autoload (c) :defer :config (a))))
+  (should-error (macroexpand-1 '(defmod foo :autoload (c) :after (b) :config (a))))
+  (should-error (macroexpand-1 '(defmod foo :after (b) :autoload (c) :config (a)))))
+
+(ert-deftest defmod-test-error-autoload-needs-command-list ()
+  "The first form after :autoload is a non-empty list of command symbols."
+  (let ((err (should-error (macroexpand-1 '(defmod foo :autoload :config (a))))))
+    (should (string-match-p "defmod foo: :autoload needs a list of commands"
+                            (cadr err))))
+  (should-error (macroexpand-1 '(defmod foo :autoload foo-cmd :config (a))))
+  (should-error (macroexpand-1 '(defmod foo :autoload () :config (a))))
+  (should-error (macroexpand-1 '(defmod foo :autoload ("x") :config (a)))))
+
 (ert-deftest defmod-test-error-after-needs-feature-list ()
   "The first form after :after is always a list of feature symbols."
   (let ((err (should-error (macroexpand-1 '(defmod foo :after :config (a))))))
@@ -181,6 +220,21 @@ non-Stage keywords like :defer."
     (should-not defmod-test--log)
     (provide 'defmod-fake-foo)
     (should (equal defmod-test--log '(configured)))))
+
+(ert-deftest defmod-test-behavior-autoload-installs-stub ()
+  "`:autoload' makes the command an autoload at startup, deferring config."
+  (defmod-test--with-fake-packages (defmod-fake-al)
+    (unwind-protect
+        (progn
+          (eval (macroexpand-1 '(defmod defmod-fake-al
+                                  :autoload (defmod-fake-al-cmd)
+                                  :config (push 'configured defmod-test--log)))
+                t)
+          (should (autoloadp (symbol-function 'defmod-fake-al-cmd)))
+          (should-not defmod-test--log)       ; config still deferred
+          (provide 'defmod-fake-al)
+          (should (equal defmod-test--log '(configured))))
+      (fmakunbound 'defmod-fake-al-cmd))))
 
 (ert-deftest defmod-test-behavior-instant-runs-in-order ()
   "An instant Block runs :init, loads, then runs :config, immediately."
