@@ -5,11 +5,13 @@ stage := ".stage"
 
 default: ci
 
+# runs all the checks for CI
 ci: compile lint test
 
-# Staged byte-compilation with warnings as errors.
 [private]
 alias c := compile
+
+# staged byte-compilation with warnings as errors.
 compile:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -20,17 +22,19 @@ compile:
         -f batch-byte-compile "{{ stage }}/defmod.el"
     echo "compiled: defmod"
 
-# Run the ERT suite in batch.
 [private]
 alias t := test
+
+# runs the ERT suite in batch.
 test:
     "{{ emacs }}" -Q --batch -L lisp -L test \
         -l defmod-test \
         -f ert-run-tests-batch-and-exit
 
-# package-lint and checkdoc, BOTH failing (stricter than aim-mode).
 [private]
 alias l := lint
+
+# applies package-lint and checkdoc.
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -75,5 +79,6 @@ lint:
                       (kill-emacs (if found 1 0)))))'
     echo "lint: clean"
 
+# cleans up `.elc` files
 clean:
     rm -rf "{{ stage }}" lisp/*.elc test/*.elc
